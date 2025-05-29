@@ -93,8 +93,7 @@ class TableBorder extends Border {
   final BorderSide horizontalInside;
   final BorderSide verticalInside;
 
-  void paintTable(Context context, PdfRect box,
-      [List<double?>? widths, List<double>? heights]) {
+  void paintTable(Context context, PdfRect box, [List<double?>? widths, List<double>? heights]) {
     super.paint(context, box);
 
     if (verticalInside.style.paint) {
@@ -157,8 +156,7 @@ class ColumnLayout {
 abstract class TableColumnWidth {
   const TableColumnWidth();
 
-  ColumnLayout layout(
-      Widget child, Context context, BoxConstraints constraints);
+  ColumnLayout layout(Widget child, Context context, BoxConstraints constraints);
 }
 
 class IntrinsicColumnWidth extends TableColumnWidth {
@@ -178,12 +176,8 @@ class IntrinsicColumnWidth extends TableColumnWidth {
 
     child.layout(context, const BoxConstraints());
     assert(child.box != null);
-    final calculatedWidth =
-        child.box!.width == double.infinity ? 0.0 : child.box!.width;
-    final childFlex = flex ??
-        (child is Expanded
-            ? child.flex.toDouble()
-            : (child.box!.width == double.infinity ? 1 : 0));
+    final calculatedWidth = child.box!.width == double.infinity ? 0.0 : child.box!.width;
+    final childFlex = flex ?? (child is Expanded ? child.flex.toDouble() : (child.box!.width == double.infinity ? 1 : 0));
     return ColumnLayout(calculatedWidth, childFlex);
   }
 }
@@ -194,8 +188,7 @@ class FixedColumnWidth extends TableColumnWidth {
   final double width;
 
   @override
-  ColumnLayout layout(
-      Widget child, Context context, BoxConstraints? constraints) {
+  ColumnLayout layout(Widget child, Context context, BoxConstraints? constraints) {
     return ColumnLayout(width, 0);
   }
 }
@@ -206,8 +199,7 @@ class FlexColumnWidth extends TableColumnWidth {
   final double flex;
 
   @override
-  ColumnLayout layout(
-      Widget child, Context context, BoxConstraints? constraints) {
+  ColumnLayout layout(Widget child, Context context, BoxConstraints? constraints) {
     return ColumnLayout(0, flex);
   }
 }
@@ -218,15 +210,13 @@ class FractionColumnWidth extends TableColumnWidth {
   final double value;
 
   @override
-  ColumnLayout layout(
-      Widget child, Context context, BoxConstraints? constraints) {
+  ColumnLayout layout(Widget child, Context context, BoxConstraints? constraints) {
     return ColumnLayout(constraints!.maxWidth * value, 0);
   }
 }
 
 typedef OnCellFormat = String Function(int index, dynamic data);
-typedef OnCellDecoration = BoxDecoration Function(
-    int index, dynamic data, int rowNum);
+typedef OnCellDecoration = BoxDecoration Function(int index, dynamic data, int rowNum);
 
 /// A widget that uses the table layout algorithm for its children.
 class Table extends Widget with SpanningWidget {
@@ -308,7 +298,7 @@ class Table extends Widget with SpanningWidget {
   bool get canSpan => true;
 
   @override
-  bool get hasMoreWidgets => true;
+  bool get hasMoreWidgets => _context.lastLine < children.length;
 
   /// The rows of the table.
   final List<TableRow> children;
@@ -335,12 +325,18 @@ class Table extends Widget with SpanningWidget {
   @override
   void restoreContext(TableContext context) {
     _context.apply(context);
-    _context.firstLine = _context.lastLine;
+    // Only advance if we successfully rendered some rows
+    if (_context.lastLine > _context.firstLine) {
+      _context.firstLine = _context.lastLine;
+    } else {
+      // If we couldn't render any rows, we're stuck. Force advance to prevent infinite loop
+      _context.firstLine++;
+      _context.lastLine = _context.firstLine;
+    }
   }
 
   @override
-  void layout(Context context, BoxConstraints constraints,
-      {bool parentUsesSize = false}) {
+  void layout(Context context, BoxConstraints constraints, {bool parentUsesSize = false}) {
     // Compute required width for all row/columns width flex
     final flex = <double>[];
     _widths.clear();
@@ -380,16 +376,13 @@ class Table extends Widget with SpanningWidget {
       for (var n = 0; n < _widths.length; n++) {
         if (flex[n] == 0.0) {
           final newWidth = _widths[n] / maxWidth * constraints.maxWidth;
-          if ((tableWidth == TableWidth.max && totalFlex == 0.0) ||
-              newWidth < _widths[n]) {
+          if ((tableWidth == TableWidth.max && totalFlex == 0.0) || newWidth < _widths[n]) {
             _widths[n] = newWidth;
           }
           flexSpace += _widths[n];
         }
       }
-      final spacePerFlex = totalFlex > 0.0
-          ? ((constraints.maxWidth - flexSpace) / totalFlex)
-          : double.nan;
+      final spacePerFlex = totalFlex > 0.0 ? ((constraints.maxWidth - flexSpace) / totalFlex) : double.nan;
 
       for (var n = 0; n < _widths.length; n++) {
         if (flex[n] > 0.0) {
@@ -417,8 +410,7 @@ class Table extends Widget with SpanningWidget {
         final childConstraints = BoxConstraints.tightFor(width: _widths[n]);
         child.layout(context, childConstraints);
         assert(child.box != null);
-        child.box =
-            PdfRect(x, totalHeight, child.box!.width, child.box!.height);
+        child.box = PdfRect(x, totalHeight, child.box!.width, child.box!.height);
         x += _widths[n];
         lineHeight = math.max(lineHeight, child.box!.height);
         n++;
@@ -431,19 +423,27 @@ class Table extends Widget with SpanningWidget {
         n = 0;
         x = 0;
         for (final child in row.children) {
-          final childConstraints =
-              BoxConstraints.tightFor(width: _widths[n], height: lineHeight);
+          final childConstraints = BoxConstraints.tightFor(width: _widths[n], height: lineHeight);
           child.layout(context, childConstraints);
           assert(child.box != null);
-          child.box =
-              PdfRect(x, totalHeight, child.box!.width, child.box!.height);
+          child.box = PdfRect(x, totalHeight, child.box!.width, child.box!.height);
           x += _widths[n];
           n++;
         }
       }
 
+      // If the very first row is too big, we need to handle it specially
       if (totalHeight + lineHeight > constraints.maxHeight) {
-        index--;
+        if (index == _context.firstLine + 1 && lineHeight > constraints.maxHeight) {
+          // If a single row is too big for the page, we need to force it through
+          // to prevent infinite loops, even though it will overflow
+          totalHeight += lineHeight;
+          _heights.add(lineHeight);
+          _context.lastLine = index;
+        } else if (index > _context.firstLine) {
+          // Normal case - rewind one row if we've rendered at least one
+          index--;
+        }
         break;
       }
       totalHeight += lineHeight;
@@ -469,9 +469,7 @@ class Table extends Widget with SpanningWidget {
             childY = totalHeight - child.box!.y - _getHeight(heightIndex);
             break;
           case TableCellVerticalAlignment.middle:
-            childY = totalHeight -
-                child.box!.y -
-                (_getHeight(heightIndex) + child.box!.height) / 2;
+            childY = totalHeight - child.box!.y - (_getHeight(heightIndex) + child.box!.height) / 2;
             break;
           case TableCellVerticalAlignment.top:
           case TableCellVerticalAlignment.full:
@@ -533,8 +531,7 @@ class Table extends Widget with SpanningWidget {
       for (final child in row.children) {
         context.canvas
           ..saveContext()
-          ..drawRect(
-              child.box!.x, child.box!.y, child.box!.width, child.box!.height)
+          ..drawRect(child.box!.x, child.box!.y, child.box!.width, child.box!.height)
           ..clipPath();
         child.paint(context);
         context.canvas.restoreContext();
@@ -577,8 +574,6 @@ class Table extends Widget with SpanningWidget {
   }
 
   double _getHeight(int heightIndex) {
-    return (heightIndex >= 0 && heightIndex < _heights.length)
-        ? _heights[heightIndex]
-        : 0.0;
+    return (heightIndex >= 0 && heightIndex < _heights.length) ? _heights[heightIndex] : 0.0;
   }
 }
