@@ -25,8 +25,8 @@ import 'theme.dart';
 import 'widget.dart';
 
 typedef OnCell = Widget? Function(int index, dynamic data, int rowNum);
-typedef OnCellTextStyle = TextStyle? Function(
-    int index, dynamic data, int rowNum);
+typedef OnWidgetFormat = Widget Function(dynamic data);
+typedef OnCellTextStyle = TextStyle? Function(int index, dynamic data, int rowNum);
 
 mixin TableHelper {
   static TextAlign _textAlign(Alignment align) {
@@ -109,9 +109,7 @@ mixin TableHelper {
             child: cell is Widget
                 ? cell
                 : Text(
-                    headerFormat == null
-                        ? cell.toString()
-                        : headerFormat(tableRow.length, cell),
+                    headerFormat == null ? cell.toString() : headerFormat(tableRow.length, cell),
                     style: headerStyle,
                     textDirection: headerDirection,
                   ),
@@ -126,8 +124,7 @@ mixin TableHelper {
       rowNum++;
     }
 
-    final textDirection =
-        context == null ? TextDirection.ltr : Directionality.of(context);
+    final textDirection = context == null ? TextDirection.ltr : Directionality.of(context);
     for (final row in data) {
       final tableRow = <Widget>[];
       final isOdd = (rowNum - headerCount) % 2 != 0;
@@ -144,9 +141,7 @@ mixin TableHelper {
               child: cell is Widget
                   ? cell
                   : Text(
-                      headerFormat == null
-                          ? cell.toString()
-                          : headerFormat(tableRow.length, cell),
+                      headerFormat == null ? cell.toString() : headerFormat(tableRow.length, cell),
                       style: headerStyle,
                       textAlign: textAlign,
                       textDirection: headerDirection,
@@ -162,19 +157,13 @@ mixin TableHelper {
               alignment: align,
               padding: cellPadding,
               constraints: BoxConstraints(minHeight: cellHeight),
-              decoration: cellDecoration == null
-                  ? null
-                  : cellDecoration(tableRow.length, cell, rowNum),
+              decoration: cellDecoration == null ? null : cellDecoration(tableRow.length, cell, rowNum),
               child: cell is Widget
                   ? cell
                   : cellBuilder?.call(tableRow.length, cell, rowNum) ??
                       Text(
-                        cellFormat == null
-                            ? cell.toString()
-                            : cellFormat(tableRow.length, cell),
-                        style: textStyleBuilder?.call(
-                                tableRow.length, cell, rowNum) ??
-                            (isOdd ? oddCellStyle : cellStyle),
+                        cellFormat == null ? cell.toString() : cellFormat(tableRow.length, cell),
+                        style: textStyleBuilder?.call(tableRow.length, cell, rowNum) ?? (isOdd ? oddCellStyle : cellStyle),
                         textAlign: _textAlign(align.resolve(textDirection)),
                         textDirection: tableDirection,
                       ),
@@ -195,6 +184,110 @@ mixin TableHelper {
       ));
       rowNum++;
     }
+    return Table(
+      border: border,
+      tableWidth: tableWidth,
+      children: rows,
+      columnWidths: columnWidths,
+      defaultColumnWidth: defaultColumnWidth,
+      defaultVerticalAlignment: TableCellVerticalAlignment.full,
+    );
+  }
+
+  /// Creates a table from a 2D array of widgets
+  ///
+  /// Example:
+  /// ```dart
+  /// TableHelper.fromWidgetArray(
+  ///   data: [
+  ///     [Text('Cell 1'), Image(...)],
+  ///     [Container(...), Icon(...)],
+  ///   ],
+  ///   headers: [Text('Header 1'), Text('Header 2')],
+  /// )
+  /// ```
+  static Table fromWidgetArray({
+    Context? context,
+    required List<List<Widget>> data,
+    EdgeInsetsGeometry cellPadding = const EdgeInsets.all(5),
+    double cellHeight = 0,
+    AlignmentGeometry cellAlignment = Alignment.topLeft,
+    Map<int, AlignmentGeometry>? cellAlignments,
+    List<Widget>? headers,
+    EdgeInsetsGeometry? headerPadding,
+    double? headerHeight,
+    AlignmentGeometry headerAlignment = Alignment.center,
+    Map<int, AlignmentGeometry>? headerAlignments,
+    TableBorder? border = const TableBorder(
+      left: BorderSide(),
+      right: BorderSide(),
+      top: BorderSide(),
+      bottom: BorderSide(),
+      horizontalInside: BorderSide(),
+      verticalInside: BorderSide(),
+    ),
+    Map<int, TableColumnWidth>? columnWidths,
+    TableColumnWidth defaultColumnWidth = const IntrinsicColumnWidth(),
+    TableWidth tableWidth = TableWidth.max,
+    BoxDecoration? headerDecoration,
+    BoxDecoration? rowDecoration,
+    BoxDecoration? oddRowDecoration,
+  }) {
+    headerPadding ??= cellPadding;
+    headerHeight ??= cellHeight;
+    oddRowDecoration ??= rowDecoration;
+    cellAlignments ??= const <int, Alignment>{};
+    headerAlignments ??= cellAlignments;
+
+    final rows = <TableRow>[];
+
+    // Add header row if provided
+    if (headers != null) {
+      final tableRow = <Widget>[];
+      for (var i = 0; i < headers.length; i++) {
+        final cell = headers[i];
+        tableRow.add(
+          Container(
+            alignment: headerAlignments[i] ?? headerAlignment,
+            padding: headerPadding,
+            constraints: BoxConstraints(minHeight: headerHeight),
+            child: cell,
+          ),
+        );
+      }
+      rows.add(TableRow(
+        children: tableRow,
+        repeat: true,
+        decoration: headerDecoration,
+      ));
+    }
+
+    // Add data rows
+    for (var rowIndex = 0; rowIndex < data.length; rowIndex++) {
+      final row = data[rowIndex];
+      final tableRow = <Widget>[];
+      final isOdd = rowIndex % 2 != 0;
+
+      for (var colIndex = 0; colIndex < row.length; colIndex++) {
+        final cell = row[colIndex];
+        final align = cellAlignments[colIndex] ?? cellAlignment;
+
+        tableRow.add(
+          Container(
+            alignment: align,
+            padding: cellPadding,
+            constraints: BoxConstraints(minHeight: cellHeight),
+            child: cell,
+          ),
+        );
+      }
+
+      rows.add(TableRow(
+        children: tableRow,
+        decoration: isOdd ? oddRowDecoration : rowDecoration,
+      ));
+    }
+
     return Table(
       border: border,
       tableWidth: tableWidth,

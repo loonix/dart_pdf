@@ -24,25 +24,35 @@ import 'package:printing/printing.dart';
 
 import '../data.dart';
 
-Future<Uint8List> generateInvoice(
-    PdfPageFormat pageFormat, CustomData data) async {
+Future<Uint8List> generateInvoice(PdfPageFormat pageFormat, CustomData data) async {
   final lorem = pw.LoremText();
 
+  // Load product images
+  final productIcon = await rootBundle.loadString('assets/document.svg');
+
   final products = <Product>[
-    Product('19874', lorem.sentence(4), 3.99, 2),
-    Product('98452', lorem.sentence(6), 15, 2),
-    Product('28375', lorem.sentence(4), 6.95, 3),
-    Product('95673', lorem.sentence(3), 49.99, 4),
-    Product('23763', lorem.sentence(2), 560.03, 1),
-    Product('55209', lorem.sentence(5), 26, 1),
-    Product('09853', lorem.sentence(5), 26, 1),
-    Product('23463', lorem.sentence(5), 34, 1),
-    Product('56783', lorem.sentence(5), 7, 4),
-    Product('78256', lorem.sentence(5), 23, 1),
-    Product('23745', lorem.sentence(5), 94, 1),
-    Product('07834', lorem.sentence(5), 12, 1),
-    Product('23547', lorem.sentence(5), 34, 1),
-    Product('98387', lorem.sentence(5), 7.99, 2),
+    Product('19874', lorem.sentence(4), 3.99, 2, productIcon),
+    Product('98452', lorem.sentence(6), 15, 2, productIcon),
+    Product('28375', lorem.sentence(4), 6.95, 3, productIcon),
+    Product('95673', lorem.sentence(3), 49.99, 4, productIcon),
+    Product('23763', lorem.sentence(2), 560.03, 1, productIcon),
+    Product('55209', lorem.sentence(5), 26, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
+    Product('09853', lorem.sentence(5), 26, 1, productIcon),
+    Product('23463', lorem.sentence(5), 34, 1, productIcon),
   ];
 
   final invoice = Invoice(
@@ -50,8 +60,7 @@ Future<Uint8List> generateInvoice(
     products: products,
     customerName: 'Abraham Swearegin',
     customerAddress: '54 rue de Rivoli\n75001 Paris, France',
-    paymentInfo:
-        '4509 Wiseman Street\nKnoxville, Tennessee(TN), 37929\n865-372-0425',
+    paymentInfo: '4509 Wiseman Street\nKnoxville, Tennessee(TN), 37929\n865-372-0425',
     tax: .15,
     baseColor: PdfColors.teal,
     accentColor: PdfColors.blueGrey900,
@@ -88,14 +97,13 @@ class Invoice {
 
   PdfColor get _accentTextColor => baseColor.isLight ? _lightColor : _darkColor;
 
-  double get _total =>
-      products.map<double>((p) => p.total).reduce((a, b) => a + b);
+  double get _total => products.map<double>((p) => p.total).reduce((a, b) => a + b);
 
   double get _grandTotal => _total * (1 + tax);
 
   String? _logo;
-
   String? _bgShape;
+  String? _productIcon;
 
   Future<Uint8List> buildPdf(PdfPageFormat pageFormat) async {
     // Create a PDF document.
@@ -103,6 +111,7 @@ class Invoice {
 
     _logo = await rootBundle.loadString('assets/logo.svg');
     _bgShape = await rootBundle.loadString('assets/invoice.svg');
+    _productIcon = await rootBundle.loadString('assets/document.svg');
 
     // Add page to the PDF
     doc.addPage(
@@ -154,12 +163,10 @@ class Invoice {
                   ),
                   pw.Container(
                     decoration: pw.BoxDecoration(
-                      borderRadius:
-                          const pw.BorderRadius.all(pw.Radius.circular(2)),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
                       color: accentColor,
                     ),
-                    padding: const pw.EdgeInsets.only(
-                        left: 40, top: 10, bottom: 10, right: 20),
+                    padding: const pw.EdgeInsets.only(left: 40, top: 10, bottom: 10, right: 20),
                     alignment: pw.Alignment.centerLeft,
                     height: 50,
                     child: pw.DefaultTextStyle(
@@ -189,8 +196,7 @@ class Invoice {
                     alignment: pw.Alignment.topRight,
                     padding: const pw.EdgeInsets.only(bottom: 8, left: 30),
                     height: 72,
-                    child:
-                        _logo != null ? pw.SvgImage(svg: _logo!) : pw.PdfLogo(),
+                    child: _logo != null ? pw.SvgImage(svg: _logo!) : pw.PdfLogo(),
                   ),
                   // pw.Container(
                   //   color: baseColor,
@@ -231,8 +237,7 @@ class Invoice {
     );
   }
 
-  pw.PageTheme _buildTheme(
-      PdfPageFormat pageFormat, pw.Font base, pw.Font bold, pw.Font italic) {
+  pw.PageTheme _buildTheme(PdfPageFormat pageFormat, pw.Font base, pw.Font bold, pw.Font italic) {
     return pw.PageTheme(
       pageFormat: pageFormat,
       theme: pw.ThemeData.withFont(
@@ -443,56 +448,113 @@ class Invoice {
   }
 
   pw.Widget _contentTable(pw.Context context) {
-    const tableHeaders = [
-      'SKU#',
-      'Item Description',
-      'Price',
-      'Quantity',
-      'Total'
-    ];
+    const tableHeaders = ['', 'SKU#', 'Item Description', 'Price', 'Quantity', 'Total'];
 
-    return pw.TableHelper.fromTextArray(
+    // Create header widgets
+    final headerWidgets = tableHeaders
+        .map((header) => pw.Container(
+              padding: const pw.EdgeInsets.all(5),
+              decoration: header.isEmpty
+                  ? null
+                  : pw.BoxDecoration(
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                      color: baseColor,
+                    ),
+              alignment: pw.Alignment.center,
+              height: 25,
+              width: header.isEmpty ? 35 : null,
+              child: header.isEmpty
+                  ? pw.Container()
+                  : pw.Text(
+                      header,
+                      style: pw.TextStyle(
+                        color: _baseTextColor,
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+            ))
+        .toList();
+
+    // Create data row widgets
+    final rowWidgets = products.map((product) {
+      final cells = <pw.Widget>[
+        pw.Container(
+          width: 35,
+          height: 35,
+          padding: const pw.EdgeInsets.all(2),
+          child: _productIcon != null ? pw.SvgImage(svg: _productIcon!) : pw.Container(),
+        ),
+        pw.Text(
+          product.getIndex(0),
+          style: const pw.TextStyle(
+            color: _darkColor,
+            fontSize: 10,
+          ),
+          textAlign: pw.TextAlign.left,
+        ),
+        pw.Text(
+          product.getIndex(1),
+          style: const pw.TextStyle(
+            color: _darkColor,
+            fontSize: 10,
+          ),
+          textAlign: pw.TextAlign.left,
+          maxLines: 2,
+          overflow: pw.TextOverflow.clip,
+        ),
+        pw.Text(
+          product.getIndex(2),
+          style: const pw.TextStyle(
+            color: _darkColor,
+            fontSize: 10,
+          ),
+          textAlign: pw.TextAlign.right,
+        ),
+        pw.Text(
+          product.getIndex(3),
+          style: const pw.TextStyle(
+            color: _darkColor,
+            fontSize: 10,
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.Text(
+          product.getIndex(4),
+          style: const pw.TextStyle(
+            color: _darkColor,
+            fontSize: 10,
+          ),
+          textAlign: pw.TextAlign.right,
+        ),
+      ];
+
+      return cells
+          .map((cell) => pw.Container(
+                padding: const pw.EdgeInsets.all(5),
+                height: 40,
+                alignment: cell is pw.Text && cell.textAlign == pw.TextAlign.right
+                    ? pw.Alignment.centerRight
+                    : cell is pw.Text && cell.textAlign == pw.TextAlign.center
+                        ? pw.Alignment.center
+                        : pw.Alignment.centerLeft,
+                child: cell,
+              ))
+          .toList();
+    }).toList();
+
+    return pw.TableHelper.fromWidgetArray(
+      headers: headerWidgets,
+      data: rowWidgets,
       border: null,
+      headerAlignment: pw.Alignment.center,
       cellAlignment: pw.Alignment.centerLeft,
-      headerDecoration: pw.BoxDecoration(
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
-        color: baseColor,
-      ),
-      headerHeight: 25,
-      cellHeight: 40,
-      cellAlignments: {
-        0: pw.Alignment.centerLeft,
-        1: pw.Alignment.centerLeft,
-        2: pw.Alignment.centerRight,
-        3: pw.Alignment.center,
-        4: pw.Alignment.centerRight,
-      },
-      headerStyle: pw.TextStyle(
-        color: _baseTextColor,
-        fontSize: 10,
-        fontWeight: pw.FontWeight.bold,
-      ),
-      cellStyle: const pw.TextStyle(
-        color: _darkColor,
-        fontSize: 10,
-      ),
       rowDecoration: pw.BoxDecoration(
         border: pw.Border(
           bottom: pw.BorderSide(
             color: accentColor,
             width: .5,
           ),
-        ),
-      ),
-      headers: List<String>.generate(
-        tableHeaders.length,
-        (col) => tableHeaders[col],
-      ),
-      data: List<List<String>>.generate(
-        products.length,
-        (row) => List<String>.generate(
-          tableHeaders.length,
-          (col) => products[row].getIndex(col),
         ),
       ),
     );
@@ -506,35 +568,4 @@ String _formatCurrency(double amount) {
 String _formatDate(DateTime date) {
   final format = DateFormat.yMMMd('en_US');
   return format.format(date);
-}
-
-class Product {
-  const Product(
-    this.sku,
-    this.productName,
-    this.price,
-    this.quantity,
-  );
-
-  final String sku;
-  final String productName;
-  final double price;
-  final int quantity;
-  double get total => price * quantity;
-
-  String getIndex(int index) {
-    switch (index) {
-      case 0:
-        return sku;
-      case 1:
-        return productName;
-      case 2:
-        return _formatCurrency(price);
-      case 3:
-        return quantity.toString();
-      case 4:
-        return _formatCurrency(total);
-    }
-    return '';
-  }
 }
